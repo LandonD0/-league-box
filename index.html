@@ -32,8 +32,6 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:9px 6px;border-bottom:1px solid #eee}
 th{font-size:11px;color:#6b7280;text-transform:uppercase}
 .team{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #eee}
-.team.clickable{cursor:pointer}
-.team.clickable:hover{background:#f9fafb;border-radius:8px;padding:10px 8px}
 .bracket{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px}
 .round{min-width:205px}
 .match{background:#f9fafb;border:1px solid #dfe3e8;border-radius:12px;padding:9px;margin:8px 0}
@@ -44,14 +42,6 @@ th{font-size:11px;color:#6b7280;text-transform:uppercase}
 .scoreGrid{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center}
 .scoreGrid select{margin-bottom:8px}
 .scoreGrid input{margin-bottom:8px}
-.teamHistory{display:flex;flex-direction:column;gap:8px}
-.historyMatch{background:#f9fafb;border:1px solid #dfe3e8;border-radius:12px;padding:12px;margin:4px 0}
-.historyMatch .matchTeams{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.historyMatch .matchScore{font-weight:bold;font-size:16px;color:#111827}
-.historyMatch .result{font-size:12px;color:#6b7280;margin-top:4px}
-.historyMatch.win{border-left:4px solid #10b981}
-.historyMatch.loss{border-left:4px solid #ef4444}
-.historyMatch.tie{border-left:4px solid #f59e0b}
 </style>
 </head>
 
@@ -365,7 +355,7 @@ function renderLeague(l){
 
       ${rows.map((r,i)=>`
 
-      <tr style="cursor:pointer" onclick="showTeamHistory('${l.id}', null, '${encodeURIComponent(r.n)}')">
+      <tr>
 
         <td>${i+1}</td>
 
@@ -391,7 +381,7 @@ function renderLeague(l){
     </table>
 
     <p class="muted">
-      Win = 3 points • Tie = 1 point • Loss = 0 • Click a team to see match history
+      Win = 3 points • Tie = 1 point • Loss = 0
     </p>
 
     `:`
@@ -447,14 +437,15 @@ function renderLeague(l){
 
     ${l.teams.map(n=>`
 
-      <div class="team clickable" onclick="showTeamHistory('${l.id}', null, '${encodeURIComponent(n)}')">
+      <div class="team">
 
         <span>${esc(n)}</span>
 
-        <button class="danger" onclick="event.stopPropagation(); removeTeamLeague(
-          '${l.id}',
-          '${encodeURIComponent(n)}'
-        )">
+        <button class="danger"
+          onclick="removeTeamLeague(
+            '${l.id}',
+            '${encodeURIComponent(n)}'
+          )">
           Remove
         </button>
 
@@ -500,130 +491,6 @@ function removeTeamLeague(id,en){
 
     renderLeague(l);
   }
-}
-
-
-/* =========================
-   TEAM HISTORY VIEW
-========================= */
-
-function showTeamHistory(leagueId, tournamentId, encodedTeamName){
-
-  let teamName=decodeURIComponent(encodedTeamName);
-  let league=null;
-  let tournament=null;
-  let games=[];
-
-  if(leagueId){
-    league=db.leagues.find(x=>x.id===leagueId);
-    games=league.games.filter(g=>g.a===teamName||g.b===teamName);
-  }else if(tournamentId){
-    tournament=db.tournaments.find(x=>x.id===tournamentId);
-    games=tournament.games.filter(g=>g.a===teamName||g.b===teamName);
-  }
-
-  let stats={w:0,l:0,t:0,pf:0,pa:0};
-
-  games.forEach(g=>{
-    stats.pf+=Number(g.a===teamName?g.as:g.bs);
-    stats.pa+=Number(g.a===teamName?g.bs:g.as);
-
-    if(g.a===teamName){
-      if(g.as>g.bs)stats.w++;
-      else if(g.as<g.bs)stats.l++;
-      else stats.t++;
-    }else{
-      if(g.bs>g.as)stats.w++;
-      else if(g.bs<g.as)stats.l++;
-      else stats.t++;
-    }
-  });
-
-  app(`
-
-  <div class="row">
-    <button class="secondary" onclick="${leagueId?`openLeague('${leagueId}')`:`openTournament('${tournamentId}')}"}>
-      ← Back
-    </button>
-  </div>
-
-  <div class="card">
-    <h2>${esc(teamName)}</h2>
-    <div class="muted">${league?esc(league.name):(tournament?esc(tournament.name):"")}</div>
-  </div>
-
-  <div class="card">
-    <h3>Record</h3>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;text-align:center">
-      <div>
-        <div style="font-size:24px;font-weight:bold;color:#10b981">${stats.w}</div>
-        <div class="muted">Wins</div>
-      </div>
-      <div>
-        <div style="font-size:24px;font-weight:bold;color:#ef4444">${stats.l}</div>
-        <div class="muted">Losses</div>
-      </div>
-      <div>
-        <div style="font-size:24px;font-weight:bold;color:#f59e0b">${stats.t}</div>
-        <div class="muted">Ties</div>
-      </div>
-      <div>
-        <div style="font-size:24px;font-weight:bold">${stats.pf}</div>
-        <div class="muted">Points For</div>
-      </div>
-      <div>
-        <div style="font-size:24px;font-weight:bold">${stats.pa}</div>
-        <div class="muted">Points Against</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card">
-    <h3>Match History</h3>
-
-    ${games.length?`
-    <div class="teamHistory">
-      ${games.map(g=>{
-        let isWin=false,isLoss=false,isTie=false;
-        let myScore,oppScore,oppTeam;
-
-        if(g.a===teamName){
-          myScore=g.as;
-          oppScore=g.bs;
-          oppTeam=g.b;
-        }else{
-          myScore=g.bs;
-          oppScore=g.as;
-          oppTeam=g.a;
-        }
-
-        if(myScore>oppScore)isWin=true;
-        else if(myScore<oppScore)isLoss=true;
-        else isTie=true;
-
-        return `
-        <div class="historyMatch ${isWin?'win':isLoss?'loss':'tie'}">
-          <div class="matchTeams">
-            <div>
-              <div style="font-weight:bold">${esc(oppTeam)}</div>
-              <div class="muted">${league?esc(league.name):(tournament?esc(tournament.name):"")}</div>
-            </div>
-            <div class="matchScore">${myScore} - ${oppScore}</div>
-          </div>
-          <div class="result">
-            ${isWin?'<span style="color:#10b981;font-weight:bold">WIN</span>':isLoss?'<span style="color:#ef4444;font-weight:bold">LOSS</span>':'<span style="color:#f59e0b;font-weight:bold">TIE</span>'}
-          </div>
-        </div>
-        `;
-      }).join("")}
-    </div>
-    `:`
-      <div class="empty">
-        No matches played yet.
-      </div>
-    `}
-  </div>
-  `);
 }
 
 
@@ -1001,85 +868,515 @@ function renderBracketTournament(t){
       Generate Bracket
     </button>
 
+    <button class="danger"
+      onclick="deleteTournament('${t.id}')">
+      Delete
+    </button>
+
   </div>
 
+
   <div class="card">
+
     <h2>${esc(t.name)}</h2>
+
+    <div class="muted">
+      Bracket Tournament
+    </div>
+
   </div>
 
+
   <div class="card">
+
     <h3>Teams</h3>
+
     ${t.teams.map(n=>`
+
       <div class="team">
+
         <span>${esc(n)}</span>
-        <button class="danger" onclick="removeTeamTournament('${t.id}','${encodeURIComponent(n)}')">Remove</button>
+
+        <button class="danger"
+          onclick="removeTeamTournament(
+            '${t.id}',
+            '${encodeURIComponent(n)}'
+          )">
+          Remove
+        </button>
+
       </div>
-    `).join("")}
+
+    `).join("")||`
+
+      <div class="empty">
+        Add teams first.
+      </div>
+
+    `}
+
   </div>
 
+
   <div class="card">
-    <h3>Bracket</h3>
-    ${t.rounds.length?`
-      <div class="bracket">
+
+    <h3>Editable Bracket</h3>
+
+    ${
+      t.rounds.length
+      ?
+      `<div class="bracket">
+
         ${t.rounds.map((r,ri)=>`
+
           <div class="round">
-            <h4 style="text-align:center;margin:8px 0">Round ${ri+1}</h4>
+
+            <h3>
+              ${
+                ri===t.rounds.length-1
+                ?"Final"
+                :"Round "+(ri+1)
+              }
+            </h3>
+
             ${r.map((m,mi)=>`
+
               <div class="match">
-                <div class="slot ${m.w===0?'winner':''}">
-                  <span>${esc(m.a)}</span>
-                  <input type="number" min="0" style="width:50px" value="${m.as}" onchange="updateMatch(${mi},${ri},0,this.value)">
+
+                <div class="slot ${
+                  m.winner===m.a&&m.a
+                  ?"winner":""
+                }">
+
+                  ${esc(m.a||"TBD")}
+
+                  <input
+                    style="width:48px;padding:5px"
+                    type="number"
+                    value="${esc(m.as)}"
+                    onchange="
+                      setMatchScore(
+                        '${t.id}',
+                        ${ri},
+                        ${mi},
+                        'a',
+                        this.value
+                      )
+                    "
+                  >
+
                 </div>
-                <div class="slot ${m.w===1?'winner':''}">
-                  <span>${esc(m.b)}</span>
-                  <input type="number" min="0" style="width:50px" value="${m.bs}" onchange="updateMatch(${mi},${ri},1,this.value)">
+
+
+                <div class="slot ${
+                  m.winner===m.b&&m.b
+                  ?"winner":""
+                }">
+
+                  ${esc(m.b||"TBD")}
+
+                  <input
+                    style="width:48px;padding:5px"
+                    type="number"
+                    value="${esc(m.bs)}"
+                    onchange="
+                      setMatchScore(
+                        '${t.id}',
+                        ${ri},
+                        ${mi},
+                        'b',
+                        this.value
+                      )
+                    "
+                  >
+
                 </div>
+
+
+                <div class="row"
+                  style="margin-top:6px">
+
+                  <button
+                    class="secondary small"
+                    onclick="clearMatch(
+                      '${t.id}',
+                      ${ri},
+                      ${mi}
+                    )">
+                    Clear
+                  </button>
+
+                </div>
+
               </div>
+
             `).join("")}
+
           </div>
+
         `).join("")}
-      </div>
-    `:`<p class="empty">Generate a bracket to start.</p>`}
+
+      </div>`
+      :
+      `<div class="empty">
+        Generate a bracket to start.
+      </div>`
+    }
+
   </div>
+
   `);
 }
 
 function generateBracket(id){
+
   let t=db.tournaments.find(x=>x.id===id);
-  if(t.teams.length<2)return alert("Need at least 2 teams");
-  
+
+  if(t.teams.length<2)
+    return alert("Add at least 2 teams.");
+
   let teams=[...t.teams].sort(()=>Math.random()-0.5);
+
   let rounds=[];
-  let current=teams.map((team,i)=>({a:teams[i*2],b:teams[i*2+1]||"Bye",as:0,bs:0,w:-1})).filter(m=>m.a);
-  
-  while(current.length>1||rounds.length===0){
-    rounds.push([...current]);
-    current=current.map((m,i)=>m.w>=0?{a:m.w===0?m.a:m.b,b:"TBD",as:0,bs:0,w:-1}:null).filter(x=>x);
-    if(current.length===1)current.push({a:"TBD",b:"TBD",as:0,bs:0,w:-1});
+
+  let currentRound=[];
+
+  for(let i=0;i<teams.length;i+=2){
+
+    currentRound.push({
+      a:teams[i]||null,
+      b:teams[i+1]||null,
+      as:0,
+      bs:0,
+      winner:null
+    });
   }
-  
+
+  rounds.push(currentRound);
+
+  while(currentRound.length>1){
+
+    let nextRound=[];
+
+    for(let i=0;i<currentRound.length;i+=2){
+
+      let m1=currentRound[i];
+
+      let m2=currentRound[i+1];
+
+      let team1=
+        m1.winner||(m1.as>m1.bs?m1.a:m1.b);
+
+      let team2=
+        m2?(m2.winner||(m2.as>m2.bs?m2.a:m2.b)):null;
+
+      nextRound.push({
+        a:team1,
+        b:team2,
+        as:0,
+        bs:0,
+        winner:null
+      });
+    }
+
+    rounds.push(nextRound);
+
+    currentRound=nextRound;
+  }
+
   t.rounds=rounds;
+
   save();
+
   renderBracketTournament(t);
 }
 
-function updateMatch(mi,ri,team,score){
-  let t=current;
-  t.rounds[ri][mi][team===0?'as':'bs']=Number(score);
-  let m=t.rounds[ri][mi];
-  m.w=m.as>m.bs?0:m.bs>m.as?1:-1;
+function setMatchScore(id,ri,mi,side,score){
+
+  let t=db.tournaments.find(x=>x.id===id);
+
+  let match=t.rounds[ri][mi];
+
+  score=Number(score)||0;
+
+  if(side==="a"){
+    match.as=score;
+  }else{
+    match.bs=score;
+  }
+
+  if(match.as>match.bs){
+    match.winner=match.a;
+  }else if(match.bs>match.as){
+    match.winner=match.b;
+  }else{
+    match.winner=null;
+  }
+
   save();
+
   renderBracketTournament(t);
 }
+
+function clearMatch(id,ri,mi){
+
+  let t=db.tournaments.find(x=>x.id===id);
+
+  let match=t.rounds[ri][mi];
+
+  match.as=0;
+  match.bs=0;
+  match.winner=null;
+
+  save();
+
+  renderBracketTournament(t);
+}
+
+function deleteTournament(id){
+
+  if(confirm("Delete this tournament?")){
+
+    db.tournaments=
+      db.tournaments.filter(x=>x.id!==id);
+
+    save();
+
+    showTournaments();
+  }
+}
+
+
+/* =========================
+   POOL TOURNAMENT
+========================= */
 
 function renderPoolTournament(t){
-  app(`<div class="card"><h2>${esc(t.name)}</h2><p>Pool play mode (coming soon)</p></div>`);
+
+  app(`
+
+  <div class="row">
+
+    <button class="secondary"
+      onclick="showTournaments()">
+      ← Tournaments
+    </button>
+
+    <button onclick="addTeamTournament('${t.id}')">
+      + Team
+    </button>
+
+    <button class="danger"
+      onclick="deleteTournament('${t.id}')">
+      Delete
+    </button>
+
+  </div>
+
+  <div class="card">
+
+    <h2>${esc(t.name)}</h2>
+
+    <div class="muted">
+      Pool Play Tournament
+    </div>
+
+  </div>
+
+  <div class="card">
+
+    <h3>Teams</h3>
+
+    ${t.teams.map(n=>`
+
+      <div class="team">
+
+        <span>${esc(n)}</span>
+
+        <button class="danger"
+          onclick="removeTeamTournament(
+            '${t.id}',
+            '${encodeURIComponent(n)}'
+          )">
+          Remove
+        </button>
+
+      </div>
+
+    `).join("")}
+
+  </div>
+
+  <div class="card">
+
+    <h3>Games</h3>
+
+    ${t.games.map((g,i)=>`
+
+      <div class="team">
+
+        <span>
+          ${esc(g.a)}
+          <b>${g.as}</b>
+          —
+          <b>${g.bs}</b>
+          ${esc(g.b)}
+        </span>
+
+        <button class="secondary"
+          onclick="editGame('${t.id}',${i})">
+          Edit
+        </button>
+
+      </div>
+
+    `).join("") || `
+      <div class="empty">
+        No games yet.
+      </div>
+    `}
+
+  </div>
+
+  <div class="row">
+
+    <button onclick="addPoolGame('${t.id}')">
+      + Game
+    </button>
+
+  </div>
+
+  `);
 }
 
-// Initialize the app on page load
+function addPoolGame(id){
+
+  let t=db.tournaments.find(x=>x.id===id);
+
+  if(t.teams.length<2)
+    return alert("Add at least 2 teams.");
+
+  app(`
+
+  <div class="card">
+
+    <h2>Add Game</h2>
+
+    <div class="scoreGrid">
+
+      <select id="poolTeam1">
+        <option value="">Team 1</option>
+        ${t.teams.map((tm,i)=>`
+          <option value="${i}">
+            ${esc(tm)}
+          </option>
+        `).join("")}
+      </select>
+
+      <input
+        id="poolScore1"
+        type="number"
+        min="0"
+        placeholder="Score"
+      >
+
+      <select id="poolTeam2">
+        <option value="">Team 2</option>
+        ${t.teams.map((tm,i)=>`
+          <option value="${i}">
+            ${esc(tm)}
+          </option>
+        `).join("")}
+      </select>
+
+      <input
+        id="poolScore2"
+        type="number"
+        min="0"
+        placeholder="Score"
+      >
+
+      <button onclick="savePoolGame('${id}')">
+        Save
+      </button>
+
+      <button class="secondary"
+        onclick="renderPoolTournament(
+          db.tournaments.find(x=>x.id==='${id}')
+        )">
+        Cancel
+      </button>
+
+    </div>
+
+  </div>
+  `);
+}
+
+function savePoolGame(id){
+
+  let t=db.tournaments.find(x=>x.id===id);
+
+  let aIdx=Number(document.getElementById("poolTeam1").value);
+  let bIdx=Number(document.getElementById("poolTeam2").value);
+  let as=Number(document.getElementById("poolScore1").value);
+  let bs=Number(document.getElementById("poolScore2").value);
+
+  if(isNaN(aIdx)||isNaN(bIdx)||aIdx===bIdx)
+    return alert("Select 2 different teams.");
+
+  if(isNaN(as)||isNaN(bs))
+    return alert("Enter scores.");
+
+  t.games.push({
+    a:t.teams[aIdx],
+    b:t.teams[bIdx],
+    as,
+    bs
+  });
+
+  save();
+
+  renderPoolTournament(t);
+}
+
+function editGame(id,i){
+
+  let container=current;
+
+  let g=container.games[i];
+
+  let a=prompt("Team 1 (from list below):\n"+container.teams.join("\n"),g.a);
+
+  if(!container.teams.includes(a))return;
+
+  let b=prompt("Team 2 (from list below):\n"+container.teams.join("\n"),g.b);
+
+  if(!container.teams.includes(b)||a===b)return;
+
+  let as=Number(prompt("Score for "+a,g.as));
+
+  let bs=Number(prompt("Score for "+b,g.bs));
+
+  if(Number.isFinite(as)&&Number.isFinite(bs)){
+
+    g.a=a;
+    g.b=b;
+    g.as=as;
+    g.bs=bs;
+
+    save();
+
+    if(container.mode==="pool"){
+      renderPoolTournament(container);
+    }else{
+      renderLeague(container);
+    }
+  }
+}
+
 showHome();
 
 </script>
-
 </body>
 </html>
