@@ -417,10 +417,17 @@ function renderLeague(l){
           }
         </span>
 
-        <button class="secondary"
-          onclick="editGame('${l.id}',${i})">
-          Edit
-        </button>
+        <div class="row">
+          <button class="secondary"
+            onclick="editGame('${l.id}',${i})">
+            Edit
+          </button>
+
+          <button class="danger"
+            onclick="deleteGame('${l.id}',${i})">
+            Delete
+          </button>
+        </div>
 
       </div>
 
@@ -514,10 +521,17 @@ function showTeamHistory(leagueId, encodedTeamName){
             }
           </span>
 
-          <button class="secondary"
-            onclick="editGame('${leagueId}',${l.games.indexOf(g)})">
-            Edit
-          </button>
+          <div class="row">
+            <button class="secondary"
+              onclick="editGame('${leagueId}',${l.games.indexOf(g)})">
+              Edit
+            </button>
+
+            <button class="danger"
+              onclick="deleteGame('${leagueId}',${l.games.indexOf(g)})">
+              Delete
+            </button>
+          </div>
 
         </div>
 
@@ -752,6 +766,22 @@ function editGame(id,i){
     g.b=b;
     g.as=as;
     g.bs=bs;
+
+    save();
+
+    renderLeague(l);
+  }
+}
+
+function deleteGame(id,i){
+
+  let l=db.leagues.find(x=>x.id===id);
+
+  let g=l.games[i];
+
+  if(confirm(`Delete game: ${g.a} vs ${g.b}?`)){
+
+    l.games.splice(i,1);
 
     save();
 
@@ -1068,40 +1098,6 @@ function renderBracketTournament(t){
 
                 </div>
 
-
-                <div class="row"
-                  style="margin-top:6px">
-
-                  <button
-                    class="secondary small"
-                    onclick="
-                      setMatchWinner(
-                        '${t.id}',
-                        ${ri},
-                        ${mi},
-                        '${esc(m.a)}'
-                      )
-                    "
-                  >
-                    ${esc(m.a||"TBD")} wins
-                  </button>
-
-                  <button
-                    class="secondary small"
-                    onclick="
-                      setMatchWinner(
-                        '${t.id}',
-                        ${ri},
-                        ${mi},
-                        '${esc(m.b)}'
-                      )
-                    "
-                  >
-                    ${esc(m.b||"TBD")} wins
-                  </button>
-
-                </div>
-
               </div>
 
             `).join("")}
@@ -1113,7 +1109,7 @@ function renderBracketTournament(t){
       </div>`
       :
       `<div class="empty">
-        Generate a bracket to start.
+        Add teams & generate bracket
       </div>`
     }
 
@@ -1129,90 +1125,103 @@ function generateBracket(id){
   if(t.teams.length<2)
     return alert("Add at least 2 teams first.");
 
+  let r=[];
+
   let teams=[...t.teams].sort(()=>Math.random()-.5);
 
-  let rounds=[];
+  while(teams.length>1){
 
-  let currentRound=teams.map(team=>({
-    a:team,
-    as:0,
-    b:"",
-    bs:0,
-    winner:""
-  }));
+    let round=[];
 
-  while(currentRound.length>0){
+    for(let i=0;i<teams.length;i+=2){
 
-    rounds.push([...currentRound]);
+      if(i+1<teams.length){
 
-    let nextRound=[];
-
-    for(let i=0;i<currentRound.length;i+=2){
-
-      if(i+1<currentRound.length){
-
-        nextRound.push({
-          a:currentRound[i].winner||"",
+        round.push({
+          a:teams[i],
+          b:teams[i+1],
           as:0,
-          b:currentRound[i+1].winner||"",
           bs:0,
-          winner:""
+          winner:null
         });
 
-      }else if(currentRound.length%2===1){
+      }else{
 
-        nextRound.push({
-          a:currentRound[i].winner||"",
+        round.push({
+          a:teams[i],
+          b:null,
           as:0,
-          b:"",
           bs:0,
-          winner:""
+          winner:null
         });
+
       }
     }
 
-    currentRound=nextRound;
+    r.push(round);
+
+    teams=round.map(m=>m.winner||m.a);
   }
 
-  t.rounds=rounds;
+  t.rounds=r;
 
   save();
 
-  renderBracketTournament(t);
+  renderTournament(t);
 }
 
-function setMatchWinner(id,ri,mi,winner){
+function setMatchScore(tid,ri,mi,slot,val){
 
-  let t=db.tournaments.find(x=>x.id===id);
+  let t=db.tournaments.find(x=>x.id===tid);
 
-  t.rounds[ri][mi].winner=winner;
+  let m=t.rounds[ri][mi];
 
-  if(ri+1<t.rounds.length){
+  if(slot==="a")m.as=Number(val);
 
-    let nextMatchIndex=Math.floor(mi/2);
+  if(slot==="b")m.bs=Number(val);
 
-    if(mi%2===0){
+  if(m.a&&m.b){
 
-      t.rounds[ri+1][nextMatchIndex].a=winner;
+    if(m.as>m.bs)m.winner=m.a;
+
+    else if(m.bs>m.as)m.winner=m.b;
+
+    else m.winner=null;
+  }
+
+  if(ri<t.rounds.length-1){
+
+    let nextRound=t.rounds[ri+1];
+
+    let nextSlot=Math.floor(mi/2);
+
+    let isSecond=mi%2===1;
+
+    if(!nextRound[nextSlot]){
+
+      nextRound[nextSlot]={
+        a:null,
+        b:null,
+        as:0,
+        bs:0,
+        winner:null
+      };
+    }
+
+    if(isSecond){
+
+      nextRound[nextSlot].b=m.winner;
 
     }else{
 
-      t.rounds[ri+1][nextMatchIndex].b=winner;
+      nextRound[nextSlot].a=m.winner;
+
     }
   }
 
   save();
 
-  renderBracketTournament(t);
-}
-
-function setMatchScore(id,ri,mi,slot,score){
-
-  let t=db.tournaments.find(x=>x.id===id);
-
-  t.rounds[ri][mi][slot+"s"]=Number(score);
-
-  save();
+  renderTournament(t);
 }
 
 function deleteTournament(id){
@@ -1230,7 +1239,468 @@ function deleteTournament(id){
 
 function renderPoolTournament(t){
 
-  app("<div class='empty'>Pool tournament feature coming soon</div>");
+  if(!t.pools||!t.pools.length){
+
+    return app(`
+
+    <div class="row">
+
+      <button class="secondary"
+        onclick="showTournaments()">
+        ← Tournaments
+      </button>
+
+      <button onclick="addTeamTournament('${t.id}')">
+        + Team
+      </button>
+
+      <button onclick="generatePools('${t.id}')">
+        Generate Pools
+      </button>
+
+      <button class="danger"
+        onclick="deleteTournament('${t.id}')">
+        Delete
+      </button>
+
+    </div>
+
+    <div class="card">
+
+      <h2>${esc(t.name)}</h2>
+
+      <div class="muted">
+        Pool Play → Bracket
+      </div>
+
+    </div>
+
+    <div class="card">
+
+      <h3>Teams</h3>
+
+      ${t.teams.map(n=>`
+
+        <div class="team">
+
+          <span>${esc(n)}</span>
+
+          <button class="danger"
+            onclick="removeTeamTournament(
+              '${t.id}',
+              '${encodeURIComponent(n)}'
+            )">
+            Remove
+          </button>
+
+        </div>
+
+      `).join("")||`
+
+        <div class="empty">
+          Add teams first.
+        </div>
+
+      `}
+
+    </div>
+
+    `);
+  }
+
+  app(`
+
+  <div class="row">
+
+    <button class="secondary"
+      onclick="showTournaments()">
+      ← Tournaments
+    </button>
+
+    <button onclick="addTeamTournament('${t.id}')">
+      + Team
+    </button>
+
+    <button class="danger"
+      onclick="clearPools('${t.id}')">
+      Reset Pools
+    </button>
+
+    <button class="danger"
+      onclick="deleteTournament('${t.id}')">
+      Delete
+    </button>
+
+  </div>
+
+  <div class="card">
+
+    <h2>${esc(t.name)}</h2>
+
+  </div>
+
+  ${t.pools.map((p,pi)=>`
+
+    <div class="card">
+
+      <h3>Pool ${String.fromCharCode(65+pi)}</h3>
+
+      <table>
+
+        <tr>
+          <th>Team</th>
+          <th>W</th>
+          <th>L</th>
+          <th>T</th>
+          <th>Pts</th>
+        </tr>
+
+        ${p.standings.map(s=>`
+
+          <tr>
+            <td><b>${esc(s.team)}</b></td>
+            <td>${s.w}</td>
+            <td>${s.l}</td>
+            <td>${s.t}</td>
+            <td>${s.pts}</td>
+          </tr>
+
+        `).join("")}
+
+      </table>
+
+      <h4 style="margin:12px 0 8px">Games</h4>
+
+      ${p.games.map((g,gi)=>`
+
+        <div class="team">
+
+          <span>
+            ${esc(g.a)}
+            <b>${g.as}</b>
+            —
+            <b>${g.bs}</b>
+            ${esc(g.b)}
+          </span>
+
+          <div class="row">
+            <button class="secondary"
+              onclick="editPoolGame('${t.id}',${pi},${gi})">
+              Edit
+            </button>
+          </div>
+
+        </div>
+
+      `).join("")}
+
+      <button
+        style="margin-top:8px"
+        onclick="addPoolGame('${t.id}',${pi})">
+        + Game
+      </button>
+
+    </div>
+
+  `).join("")}
+
+  <div class="card">
+
+    <button onclick="bracketsFromPools('${t.id}')">
+      Generate Brackets from Pools
+    </button>
+
+  </div>
+
+  `);
+}
+
+function generatePools(tid){
+
+  let t=db.tournaments.find(x=>x.id===tid);
+
+  if(t.teams.length<2)
+    return alert("Add teams first");
+
+  t.poolCount=prompt(
+    "Number of pools?",
+    Math.ceil(Math.sqrt(t.teams.length))
+  );
+
+  if(!t.poolCount)return;
+
+  t.poolCount=Number(t.poolCount);
+
+  t.pools=[];
+
+  let teams=[...t.teams].sort(()=>Math.random()-.5);
+
+  for(let p=0;p<t.poolCount;p++){
+
+    t.pools.push({
+      teams:[],
+      games:[],
+      standings:[]
+    });
+  }
+
+  teams.forEach((team,i)=>{
+    t.pools[i%t.poolCount].teams.push(team);
+  });
+
+  t.pools.forEach(p=>{
+
+    p.standings=p.teams.map(n=>({
+      team:n,
+      w:0,
+      l:0,
+      t:0,
+      pts:0
+    }));
+  });
+
+  save();
+
+  renderPoolTournament(t);
+}
+
+function addPoolGame(tid,pi){
+
+  let t=db.tournaments.find(x=>x.id===tid);
+
+  let p=t.pools[pi];
+
+  if(p.teams.length<2)
+    return alert("Add teams first");
+
+  app(`
+
+  <div class="card">
+
+    <h2>Add Pool Game</h2>
+
+    <div class="field">
+
+      <label>Team 1</label>
+
+      <select id="poolTeam1">
+
+        <option value="">
+          Select
+        </option>
+
+        ${p.teams.map((te,i)=>`
+          <option value="${i}">
+            ${esc(te)}
+          </option>
+        `).join("")}
+
+      </select>
+
+    </div>
+
+    <div class="field">
+
+      <label>Score</label>
+
+      <input
+        id="poolScore1"
+        type="number"
+        min="0"
+      >
+
+    </div>
+
+    <div class="field">
+
+      <label>Team 2</label>
+
+      <select id="poolTeam2">
+
+        <option value="">
+          Select
+        </option>
+
+        ${p.teams.map((te,i)=>`
+          <option value="${i}">
+            ${esc(te)}
+          </option>
+        `).join("")}
+
+      </select>
+
+    </div>
+
+    <div class="field">
+
+      <label>Score</label>
+
+      <input
+        id="poolScore2"
+        type="number"
+        min="0"
+      >
+
+    </div>
+
+    <div class="row">
+
+      <button onclick="savePoolGame('${tid}',${pi})">
+        Save
+      </button>
+
+      <button class="secondary"
+        onclick="renderPoolTournament(
+          db.tournaments.find(x=>x.id==='${tid}')
+        )">
+        Cancel
+      </button>
+
+    </div>
+
+  </div>
+  `);
+}
+
+function savePoolGame(tid,pi){
+
+  let t=db.tournaments.find(x=>x.id===tid);
+
+  let p=t.pools[pi];
+
+  let a1=Number(document.getElementById("poolTeam1").value);
+
+  let a2=Number(document.getElementById("poolTeam2").value);
+
+  let s1=Number(document.getElementById("poolScore1").value);
+
+  let s2=Number(document.getElementById("poolScore2").value);
+
+  if(a1===""||a2==="")return alert("Select teams");
+
+  if(a1===a2)return alert("Select different teams");
+
+  p.games.push({
+    a:p.teams[a1],
+    b:p.teams[a2],
+    as:s1,
+    bs:s2
+  });
+
+  updatePoolStandings(p);
+
+  save();
+
+  renderPoolTournament(t);
+}
+
+function editPoolGame(tid,pi,gi){
+
+  let t=db.tournaments.find(x=>x.id===tid);
+
+  let p=t.pools[pi];
+
+  let g=p.games[gi];
+
+  let a=prompt("Team 1",g.a);
+
+  if(!p.teams.includes(a))return;
+
+  let b=prompt("Team 2",g.b);
+
+  if(!p.teams.includes(b)||a===b)return;
+
+  let s1=Number(prompt("Score for "+a,g.as));
+
+  let s2=Number(prompt("Score for "+b,g.bs));
+
+  if(Number.isFinite(s1)&&Number.isFinite(s2)){
+
+    g.a=a;
+    g.b=b;
+    g.as=s1;
+    g.bs=s2;
+
+    updatePoolStandings(p);
+
+    save();
+
+    renderPoolTournament(t);
+  }
+}
+
+function updatePoolStandings(p){
+
+  p.standings.forEach(s=>{
+    s.w=0;
+    s.l=0;
+    s.t=0;
+    s.pts=0;
+  });
+
+  p.games.forEach(g=>{
+
+    let st1=p.standings.find(s=>s.team===g.a);
+    let st2=p.standings.find(s=>s.team===g.b);
+
+    if(!st1||!st2)return;
+
+    if(g.as>g.bs){
+      st1.w++;
+      st2.l++;
+      st1.pts+=3;
+    }else if(g.bs>g.as){
+      st2.w++;
+      st1.l++;
+      st2.pts+=3;
+    }else{
+      st1.t++;
+      st2.t++;
+      st1.pts++;
+      st2.pts++;
+    }
+  });
+
+  p.standings.sort((a,b)=>b.pts-a.pts);
+}
+
+function clearPools(tid){
+
+  if(!confirm("Reset pools?"))return;
+
+  let t=db.tournaments.find(x=>x.id===tid);
+
+  t.pools=[];
+
+  t.poolCount=0;
+
+  save();
+
+  renderPoolTournament(t);
+}
+
+function bracketsFromPools(tid){
+
+  let t=db.tournaments.find(x=>x.id===tid);
+
+  if(!t.pools||!t.pools.length)
+    return alert("Generate pools first");
+
+  let qualified=[];
+
+  t.pools.forEach(p=>{
+    if(p.standings.length>0)
+      qualified.push(p.standings[0].team);
+  });
+
+  if(qualified.length<2)
+    return alert("Not enough pool winners");
+
+  t.teams=qualified;
+
+  generateBracket(tid);
+
+  renderTournament(t);
 }
 
 </script>
