@@ -194,7 +194,7 @@ function showDebug(){
         <button class="danger" onclick="backupThenReset()">Backup & Reset (if broken)</button>
       </div>
 
-      <div style="margin-top:12px" class="muted small">If auto-recover succeeds, the app will save a cleaned copy and reload. If it fails, a backup key will be saved as <code>leaguebox-v1.broken.<timestamp></code>.</div>
+      <div style="margin-top:12px" class="muted small">If auto-recover succeeds, the app will save a cleaned copy and reload. If it fails, a backup key will be saved as <code>leaguebox-v1.broken.[...]
 
       <div style="margin-top:12px">
         <button class="secondary" onclick="showHome()">Close</button>
@@ -694,7 +694,197 @@ function removeTeamLeague(id,en){
   }
 }
 
-/* rest of file unchanged... */
+/* =========================
+   GAME MANAGEMENT
+========================= */
+
+function addGame(id){
+  let l=db.leagues.find(x=>x.id===id);
+  
+  if(l.teams.length < 2){
+    alert("Need at least 2 teams to add a game");
+    return;
+  }
+
+  app(`
+    <div class="row">
+      <button class="secondary" onclick="renderLeague(db.leagues.find(x=>x.id==='${id}'))">
+        ← Back
+      </button>
+    </div>
+
+    <div class="card">
+      <h2>Add Score</h2>
+      
+      <div class="scoreGrid">
+        <label style="grid-column: 1/3; font-weight:700">Team A</label>
+        <select id="teamA">
+          <option value="">Select team...</option>
+          ${l.teams.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")}
+        </select>
+        
+        <label style="grid-column: 1/3; font-weight:700">Score A</label>
+        <input id="scoreA" type="number" value="0" min="0">
+        
+        <label style="grid-column: 1/3; font-weight:700">Team B</label>
+        <select id="teamB">
+          <option value="">Select team...</option>
+          ${l.teams.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")}
+        </select>
+        
+        <label style="grid-column: 1/3; font-weight:700">Score B</label>
+        <input id="scoreB" type="number" value="0" min="0">
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button onclick="saveGame('${id}')">Save Game</button>
+        <button class="secondary" onclick="renderLeague(db.leagues.find(x=>x.id==='${id}'))">Cancel</button>
+      </div>
+    </div>
+  `);
+}
+
+function saveGame(id){
+  let l=db.leagues.find(x=>x.id===id);
+  
+  let a=document.getElementById("teamA").value;
+  let b=document.getElementById("teamB").value;
+  let as=document.getElementById("scoreA").value;
+  let bs=document.getElementById("scoreB").value;
+
+  if(!a || !b){
+    alert("Select both teams");
+    return;
+  }
+
+  if(a===b){
+    alert("Teams must be different");
+    return;
+  }
+
+  l.games.push({
+    id: crypto.randomUUID(),
+    a,
+    b,
+    as: Number(as),
+    bs: Number(bs)
+  });
+
+  save();
+  renderLeague(l);
+}
+
+function editGameById(id, gameId){
+  let l=db.leagues.find(x=>x.id===id);
+  let g=l.games.find(x=>x.id===gameId);
+
+  if(!g) return;
+
+  app(`
+    <div class="row">
+      <button class="secondary" onclick="renderLeague(db.leagues.find(x=>x.id==='${id}'))">
+        ← Back
+      </button>
+    </div>
+
+    <div class="card">
+      <h2>Edit Score</h2>
+      
+      <div class="scoreGrid">
+        <label style="grid-column: 1/3; font-weight:700">Team A</label>
+        <select id="teamA">
+          ${l.teams.map(t=>`<option value="${esc(t)}" ${t===g.a?'selected':''}>${esc(t)}</option>`).join("")}
+        </select>
+        
+        <label style="grid-column: 1/3; font-weight:700">Score A</label>
+        <input id="scoreA" type="number" value="${g.as}" min="0">
+        
+        <label style="grid-column: 1/3; font-weight:700">Team B</label>
+        <select id="teamB">
+          ${l.teams.map(t=>`<option value="${esc(t)}" ${t===g.b?'selected':''}>${esc(t)}</option>`).join("")}
+        </select>
+        
+        <label style="grid-column: 1/3; font-weight:700">Score B</label>
+        <input id="scoreB" type="number" value="${g.bs}" min="0">
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button onclick="updateGame('${id}','${gameId}')">Save Changes</button>
+        <button class="secondary" onclick="renderLeague(db.leagues.find(x=>x.id==='${id}'))">Cancel</button>
+      </div>
+    </div>
+  `);
+}
+
+function updateGame(id, gameId){
+  let l=db.leagues.find(x=>x.id===id);
+  let g=l.games.find(x=>x.id===gameId);
+
+  if(!g) return;
+
+  let a=document.getElementById("teamA").value;
+  let b=document.getElementById("teamB").value;
+  let as=document.getElementById("scoreA").value;
+  let bs=document.getElementById("scoreB").value;
+
+  if(!a || !b){
+    alert("Select both teams");
+    return;
+  }
+
+  if(a===b){
+    alert("Teams must be different");
+    return;
+  }
+
+  g.a = a;
+  g.b = b;
+  g.as = Number(as);
+  g.bs = Number(bs);
+
+  save();
+  renderLeague(l);
+}
+
+function deleteGameById(id, gameId){
+  if(confirm("Delete this game?")){
+    let l=db.leagues.find(x=>x.id===id);
+    l.games = l.games.filter(x=>x.id!==gameId);
+    save();
+    renderLeague(l);
+  }
+}
+
+function deleteLeague(id){
+  if(confirm("Delete this entire league?")){
+    db.leagues = db.leagues.filter(x=>x.id!==id);
+    save();
+    showLeagues();
+  }
+}
+
+/* =========================
+   TOURNAMENTS (placeholder)
+========================= */
+
+function showTournaments(){
+  setActive("navTournaments");
+  app(`
+    <div class="card">
+      <h2>Tournaments</h2>
+      <p class="muted">Tournament features coming soon</p>
+    </div>
+  `);
+}
+
+function newTournament(){
+  alert("Tournament features coming soon");
+}
+
+function openTournament(id){
+  alert("Tournament features coming soon");
+}
+
 </script>
 </body>
 </html>
