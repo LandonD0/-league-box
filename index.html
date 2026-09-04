@@ -39,9 +39,10 @@ th{font-size:11px;color:#6b7280;text-transform:uppercase}
 .match .winner{font-weight:800;background:#e5e7eb}
 .small{font-size:12px}
 .empty{padding:25px;text-align:center;color:#6b7280}
-.scoreGrid{display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:center}
-.scoreGrid select{margin-bottom:8px}
-.scoreGrid input{margin-bottom:8px}
+.scoreGrid{display:grid;grid-template-columns:1fr;gap:8px;align-items:stretch}
+.scoreGrid label{font-weight:700;font-size:13px;margin-bottom:2px;display:block}
+.scoreGrid select{margin-bottom:0}
+.scoreGrid input{margin-bottom:0}
 .teamLink{cursor:pointer;text-decoration:underline;color:#111827}
 .teamLink:hover{opacity:.7}
 .debugBtn{background:transparent;color:#6b7280;border:1px dashed #ddd;padding:6px;border-radius:8px;font-size:12px}
@@ -717,22 +718,22 @@ function addGame(id){
       <h2>Add Score</h2>
       
       <div class="scoreGrid">
-        <label style="grid-column: 1/3; font-weight:700">Team A</label>
+        <label>Team A</label>
         <select id="teamA">
           <option value="">Select team...</option>
           ${l.teams.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")}
         </select>
         
-        <label style="grid-column: 1/3; font-weight:700">Score A</label>
+        <label>Score A</label>
         <input id="scoreA" type="number" value="0" min="0">
         
-        <label style="grid-column: 1/3; font-weight:700">Team B</label>
+        <label>Team B</label>
         <select id="teamB">
           <option value="">Select team...</option>
           ${l.teams.map(t=>`<option value="${esc(t)}">${esc(t)}</option>`).join("")}
         </select>
         
-        <label style="grid-column: 1/3; font-weight:700">Score B</label>
+        <label>Score B</label>
         <input id="scoreB" type="number" value="0" min="0">
       </div>
 
@@ -791,20 +792,20 @@ function editGameById(id, gameId){
       <h2>Edit Score</h2>
       
       <div class="scoreGrid">
-        <label style="grid-column: 1/3; font-weight:700">Team A</label>
+        <label>Team A</label>
         <select id="teamA">
           ${l.teams.map(t=>`<option value="${esc(t)}" ${t===g.a?'selected':''}>${esc(t)}</option>`).join("")}
         </select>
         
-        <label style="grid-column: 1/3; font-weight:700">Score A</label>
+        <label>Score A</label>
         <input id="scoreA" type="number" value="${g.as}" min="0">
         
-        <label style="grid-column: 1/3; font-weight:700">Team B</label>
+        <label>Team B</label>
         <select id="teamB">
           ${l.teams.map(t=>`<option value="${esc(t)}" ${t===g.b?'selected':''}>${esc(t)}</option>`).join("")}
         </select>
         
-        <label style="grid-column: 1/3; font-weight:700">Score B</label>
+        <label>Score B</label>
         <input id="scoreB" type="number" value="${g.bs}" min="0">
       </div>
 
