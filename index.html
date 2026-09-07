@@ -47,6 +47,7 @@ th{font-size:11px;color:#6b7280;text-transform:uppercase}
 .teamLink:hover{opacity:.7}
 .debugBtn{background:transparent;color:#6b7280;border:1px dashed #ddd;padding:6px;border-radius:8px;font-size:12px}
 .debugArea{width:100%;height:220px;padding:10px;border:1px solid #ddd;border-radius:8px;font-family:monospace;white-space:pre-wrap;overflow:auto}
+.codeDisplay{background:#f3f4f6;border:2px solid #111827;border-radius:8px;padding:12px;text-align:center;font-family:monospace;font-size:18px;font-weight:bold;margin:12px 0;letter-spacing:2px}
 </style>
 </head>
 
@@ -68,6 +69,7 @@ th{font-size:11px;color:#6b7280;text-transform:uppercase}
 <script>
 
 const KEY="leaguebox-v1";
+const DELETE_CODE="123456789";
 
 let db=JSON.parse(localStorage.getItem(KEY)||'{"leagues":[],"tournaments":[]}');
 
@@ -418,7 +420,7 @@ function renderLeague(l){
     </button>
 
     <button class="danger"
-      onclick="deleteLeague('${l.id}')">
+      onclick="confirmDeleteLeague('${l.id}')">
       Delete
     </button>
 
@@ -572,6 +574,55 @@ function renderLeague(l){
 
   </div>
   `);
+}
+
+function confirmDeleteLeague(id){
+  if(confirm("Are you sure you would like to delete this league?")){
+    showDeleteVerification(id);
+  }
+}
+
+function showDeleteVerification(id){
+  let l=db.leagues.find(x=>x.id===id);
+  
+  app(`
+    <div class="row">
+      <button class="secondary" onclick="renderLeague(db.leagues.find(x=>x.id==='${id}'))">
+        ← Back
+      </button>
+    </div>
+
+    <div class="card">
+      <h2>Delete League: ${esc(l.name)}</h2>
+      <p class="muted">To confirm deletion, enter the code below:</p>
+      
+      <div class="codeDisplay">${DELETE_CODE}</div>
+      
+      <div class="field">
+        <label>Verification Code</label>
+        <input id="verificationCode" type="text" placeholder="Enter the code above">
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button class="danger" onclick="verifyAndDeleteLeague('${id}')">Delete League</button>
+        <button class="secondary" onclick="renderLeague(db.leagues.find(x=>x.id==='${id}'))">Cancel</button>
+      </div>
+    </div>
+  `);
+}
+
+function verifyAndDeleteLeague(id){
+  const enteredCode = document.getElementById("verificationCode").value;
+  
+  if(enteredCode !== DELETE_CODE){
+    alert("Incorrect code. League was not deleted.");
+    return;
+  }
+  
+  db.leagues = db.leagues.filter(x=>x.id!==id);
+  save();
+  alert("League deleted successfully.");
+  showLeagues();
 }
 
 function showTeamHistory(leagueId, encodedTeamName){
@@ -853,14 +904,6 @@ function deleteGameById(id, gameId){
     l.games = l.games.filter(x=>x.id!==gameId);
     save();
     renderLeague(l);
-  }
-}
-
-function deleteLeague(id){
-  if(confirm("Delete this entire league?")){
-    db.leagues = db.leagues.filter(x=>x.id!==id);
-    save();
-    showLeagues();
   }
 }
 
